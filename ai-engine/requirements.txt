@@ -1,0 +1,29 @@
+# TradeMind AI Engine
+# FastAPI + Multi-Agent Pipeline for Indian Market Trade Signals
+
+# Core
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
+python-dotenv>=1.0.0
+
+# AI / LLM (All Free Tier)
+groq>=0.11.0           # Primary: Groq Cloud (fastest, free)
+openai>=1.50.0         # For NVIDIA NIM API (OpenAI-compatible)
+httpx>=0.27.0          # For OpenRouter HTTP calls
+
+# Technical Analysis
+pandas>=2.2.0
+ta                     # 40+ technical indicators
+numpy>=1.26.0
+
+# Market Data
+yfinance>=0.2.40       # Free, no API key needed
+
+# Supabase
+supabase>=2.9.0
+
+# Utilities
+python-dateutil>=2.9.0
+pytz>=2024.1
