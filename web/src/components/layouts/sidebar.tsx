@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  LayoutDashboard, Zap, Star, Settings, LogOut, Brain, Menu, X,
+  LayoutDashboard, Zap, Star, Briefcase, Settings, LogOut, Brain, Menu, X,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { useState } from "react";
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/signals", label: "AI Signals", icon: Zap },
   { href: "/watchlist", label: "Watchlist", icon: Star },
+  { href: "/portfolio", label: "Portfolio", icon: Briefcase },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
