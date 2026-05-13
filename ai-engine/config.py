@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     default_temperature: float = 0.1
     max_tokens_per_agent: int = 2000
 
-    model_config = {"env_file": ".env", "extra": "ignore"}
+    model_config = {"env_file": (".env", ".env.local"), "extra": "ignore"}
 
 
 @lru_cache
