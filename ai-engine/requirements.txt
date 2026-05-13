@@ -24,6 +24,8 @@ yfinance>=0.2.40       # Free, no API key needed
 # Angel One SmartAPI (Live real-time data)
 smartapi-python>=1.5.0 # Angel One broker API
 pyotp>=2.9.0           # Auto TOTP generation
+logzero>=1.7.0         # SmartAPI dependency
+websocket-client>=1.6.0 # SmartAPI WebSocket dependency
 
 # Supabase
 supabase>=2.9.0
