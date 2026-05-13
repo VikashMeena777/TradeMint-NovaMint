@@ -87,7 +87,7 @@ export function SignalCard({ signal }: SignalCardProps) {
         <div className="flex items-center justify-between border-t border-white/5 pt-3">
           <div className="flex items-center gap-2">
             <Brain className="h-3.5 w-3.5 text-purple-400" />
-            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-white/10">
+            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-purple-500 to-green-500"
                 style={{ width: `${signal.confidence_score}%` }}

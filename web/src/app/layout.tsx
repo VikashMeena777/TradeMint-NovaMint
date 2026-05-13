@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -48,23 +49,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        <TooltipProvider>
-          {children}
-        </TooltipProvider>
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            style: {
-              background: "#1a1a1a",
-              border: "1px solid #2a2a2a",
-              color: "#f5f5f5",
-            },
-          }}
-        />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
+          <Toaster
+            position="bottom-right"
+            richColors
+          />
+        </ThemeProvider>
       </body>
     </html>
   );

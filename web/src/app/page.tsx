@@ -190,7 +190,7 @@ export default function LandingPage() {
               </Button>
             </Link>
             <Link href="#how-it-works">
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-white/10">
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-border">
                 See How It Works
               </Button>
             </Link>
@@ -230,7 +230,7 @@ export default function LandingPage() {
               <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
                 <div className="text-xs text-muted-foreground">Confidence</div>
                 <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
                     <div className="h-full w-[82%] rounded-full bg-gradient-to-r from-purple-500 to-green-500" />
                   </div>
                   <span className="text-sm font-mono font-bold text-green-400">82%</span>

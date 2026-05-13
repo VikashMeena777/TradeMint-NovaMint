@@ -66,7 +66,7 @@ export default function DashboardPage() {
               </div>
               <div className="text-lg font-bold font-mono tabular-nums">
                 {d ? formatINR(d.current_price) : (
-                  <div className="h-6 w-24 bg-white/5 rounded animate-pulse" />
+                  <div className="h-6 w-24 bg-muted rounded animate-pulse" />
                 )}
               </div>
             </div>

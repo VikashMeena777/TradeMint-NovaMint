@@ -158,7 +158,7 @@ export default function PortfolioPage() {
 
       {/* Positions */}
       <Tabs defaultValue="open" className="space-y-4">
-        <TabsList className="bg-white/5 border border-white/10">
+        <TabsList className="bg-muted border border-border">
           <TabsTrigger value="open" className="data-[state=active]:bg-purple-600/20 data-[state=active]:text-purple-400">
             Open ({openPositions.length})
           </TabsTrigger>

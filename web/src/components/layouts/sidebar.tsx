@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   LayoutDashboard, Zap, Star, Briefcase, Settings, LogOut, Brain, Menu, X,
+  Sun, Moon,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,6 +27,10 @@ export function Sidebar() {
   const router = useRouter();
   const supabase = createClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -55,11 +61,11 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-purple-600/15 text-purple-400 border border-purple-500/20"
+                  ? "bg-purple-600/15 text-purple-600 dark:text-purple-400 border border-purple-500/20"
                   : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
               )}
             >
-              <item.icon className={cn("h-4 w-4", isActive && "text-purple-400")} />
+              <item.icon className={cn("h-4 w-4", isActive && "text-purple-600 dark:text-purple-400")} />
               {item.label}
               {item.label === "AI Signals" && (
                 <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 text-[10px] font-bold text-white">
@@ -71,8 +77,18 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="border-t border-sidebar-border p-3">
+      {/* Theme Toggle + Logout */}
+      <div className="border-t border-sidebar-border p-3 space-y-1">
+        {mounted && (
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 text-sidebar-foreground hover:text-foreground"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === "dark" ? "Light Mode" : "Dark Mode"}
+          </Button>
+        )}
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-sidebar-foreground hover:text-red-400 hover:bg-red-500/10"
@@ -94,7 +110,7 @@ export function Sidebar() {
 
       {/* Mobile hamburger */}
       <button
-        className="fixed top-4 left-4 z-50 lg:hidden flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-background border border-sidebar-border"
+        className="fixed top-4 left-4 z-50 lg:hidden flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-background border border-sidebar-border text-foreground"
         onClick={() => setMobileOpen(!mobileOpen)}
       >
         {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

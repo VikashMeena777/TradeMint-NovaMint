@@ -54,7 +54,7 @@ export default function SignupPage() {
               <div className="relative">
                 <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input id="name" placeholder="Vikash Meena" value={fullName}
-                  onChange={(e) => setFullName(e.target.value)} className="pl-10 bg-white/5 border-white/10" required />
+                  onChange={(e) => setFullName(e.target.value)} className="pl-10 bg-secondary border-border" required />
               </div>
             </div>
             <div className="space-y-2">
@@ -62,7 +62,7 @@ export default function SignupPage() {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input id="email" type="email" placeholder="you@example.com" value={email}
-                  onChange={(e) => setEmail(e.target.value)} className="pl-10 bg-white/5 border-white/10" required />
+                  onChange={(e) => setEmail(e.target.value)} className="pl-10 bg-secondary border-border" required />
               </div>
             </div>
             <div className="space-y-2">
@@ -70,7 +70,7 @@ export default function SignupPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input id="password" type="password" placeholder="Min 6 characters" value={password}
-                  onChange={(e) => setPassword(e.target.value)} className="pl-10 bg-white/5 border-white/10" required minLength={6} />
+                  onChange={(e) => setPassword(e.target.value)} className="pl-10 bg-secondary border-border" required minLength={6} />
               </div>
             </div>
             <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={loading}>
@@ -79,7 +79,7 @@ export default function SignupPage() {
           </form>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="text-purple-400 hover:text-purple-300 font-medium">Sign In</Link>
+            <Link href="/login" className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium">Sign In</Link>
           </p>
         </div>
       </div>

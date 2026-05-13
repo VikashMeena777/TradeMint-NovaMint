@@ -141,7 +141,7 @@ function SignalsContent() {
             <Input placeholder="Enter stock symbol (e.g. RELIANCE, TCS, INFY)"
               value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-              className="pl-10 bg-white/5 border-white/10 uppercase"
+              className="pl-10 bg-muted border-border uppercase"
               disabled={generating} />
           </div>
           <Button onClick={handleGenerate} disabled={generating}
@@ -178,7 +178,7 @@ function SignalsContent() {
         <Filter className="h-4 w-4 text-muted-foreground" />
         {(["all", "buy", "sell", "hold"] as const).map((f) => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${filter === f ? "bg-purple-600/20 text-purple-400 border border-purple-500/30" : "text-muted-foreground hover:text-foreground hover:bg-white/5"}`}>
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${filter === f ? "bg-purple-600/20 text-purple-400 border border-purple-500/30" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}

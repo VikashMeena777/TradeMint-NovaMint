@@ -28,11 +28,11 @@ export default function SettingsPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" defaultValue="Vikash Meena" className="bg-white/5 border-white/10" />
+            <Input id="name" defaultValue="Vikash Meena" className="bg-muted border-border" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" defaultValue="vikash@example.com" disabled className="bg-white/5 border-white/10 opacity-60" />
+            <Input id="email" type="email" defaultValue="vikash@example.com" disabled className="bg-muted border-border opacity-60" />
           </div>
         </div>
         <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => toast.success("Profile saved")}>
@@ -50,7 +50,7 @@ export default function SettingsPage() {
           </div>
           <Badge variant="outline" className="border-green-500/30 text-green-400">Active</Badge>
         </div>
-        <Separator className="bg-white/5" />
+        <Separator className="bg-muted" />
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Signals used today</span>
           <span className="font-mono font-bold">0 / 3</span>
@@ -66,7 +66,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-3 gap-3">
           {(["conservative", "moderate", "aggressive"] as const).map((level) => (
             <button key={level}
-              className={`rounded-lg border p-3 text-sm font-medium transition-all ${level === "moderate" ? "border-purple-500/30 bg-purple-500/10 text-purple-400" : "border-white/5 text-muted-foreground hover:border-white/10 hover:text-foreground"}`}
+              className={`rounded-lg border p-3 text-sm font-medium transition-all ${level === "moderate" ? "border-purple-500/30 bg-purple-500/10 text-purple-400" : "border-white/5 text-muted-foreground hover:border-border hover:text-foreground"}`}
               onClick={() => toast.success(`Risk profile set to ${level}`)}>
               {level.charAt(0).toUpperCase() + level.slice(1)}
             </button>
@@ -89,7 +89,7 @@ export default function SettingsPage() {
             <div key={item.label} className="flex items-center justify-between">
               <span className="text-sm">{item.label}</span>
               <button
-                className={`h-6 w-11 rounded-full transition-colors ${item.enabled ? "bg-purple-600" : "bg-white/10"}`}
+                className={`h-6 w-11 rounded-full transition-colors ${item.enabled ? "bg-purple-600" : "bg-muted"}`}
                 onClick={() => toast.success("Preference updated")}>
                 <div className={`h-5 w-5 rounded-full bg-white transition-transform ${item.enabled ? "translate-x-5" : "translate-x-0.5"}`} />
               </button>

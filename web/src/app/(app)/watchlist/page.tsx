@@ -172,7 +172,7 @@ export default function WatchlistPage() {
                 placeholder="Search stocks..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="pl-9 bg-white/5 border-white/10"
+                className="pl-9 bg-muted border-border"
                 autoFocus
               />
             </div>
@@ -183,7 +183,7 @@ export default function WatchlistPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => addSymbol(stock)}
-                  className="border-white/10 hover:border-purple-500/50 hover:bg-purple-500/10 text-xs"
+                  className="border-border hover:border-purple-500/50 hover:bg-purple-500/10 text-xs"
                 >
                   <Plus className="mr-1 h-3 w-3" /> {stock}
                 </Button>
