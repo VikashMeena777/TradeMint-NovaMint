@@ -11,7 +11,8 @@ interface MarketData {
   low: number;
   volume: number;
   change_pct: number;
-  data_points: number;
+  data_points?: number;
+  source?: string; // "angel_one" | "yahoo_finance"
 }
 
 export function useMarketData(symbol: string, exchange: string = "NSE") {
@@ -26,6 +27,30 @@ export function useMarketData(symbol: string, exchange: string = "NSE") {
       setLoading(true);
       setError(null);
       try {
+        // Try live-price first (Angel One real-time → Yahoo fallback)
+        const liveRes = await fetch(`/api/live-price/${symbol}?exchange=${exchange}`);
+        if (liveRes.ok) {
+          const liveData = await liveRes.json();
+          if (!cancelled) {
+            setData({
+              symbol: liveData.symbol,
+              exchange: liveData.exchange,
+              current_price: liveData.ltp || liveData.close,
+              open: liveData.open,
+              high: liveData.high,
+              low: liveData.low,
+              volume: liveData.volume,
+              change_pct: liveData.open > 0
+                ? ((liveData.ltp || liveData.close) - liveData.open) / liveData.open * 100
+                : 0,
+              source: liveData.source,
+            });
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Fallback to market-data endpoint
         const res = await fetch(`/api/market-data/${symbol}?exchange=${exchange}`);
         if (!res.ok) throw new Error("Failed to fetch");
         const json = await res.json();
@@ -38,8 +63,8 @@ export function useMarketData(symbol: string, exchange: string = "NSE") {
     }
 
     fetchData();
-    // Refresh every 60 seconds during market hours
-    const interval = setInterval(fetchData, 60000);
+    // Refresh every 15 seconds when Angel One is live, 60s for Yahoo
+    const interval = setInterval(fetchData, 15000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [symbol, exchange]);
 
@@ -59,6 +84,26 @@ export function useMultiMarketData(symbols: { symbol: string; label: string }[])
       await Promise.allSettled(
         symbols.map(async ({ symbol }) => {
           try {
+            // Try live price first
+            const liveRes = await fetch(`/api/live-price/${symbol}`);
+            if (liveRes.ok) {
+              const liveData = await liveRes.json();
+              results[symbol] = {
+                symbol: liveData.symbol,
+                exchange: liveData.exchange,
+                current_price: liveData.ltp || liveData.close,
+                open: liveData.open,
+                high: liveData.high,
+                low: liveData.low,
+                volume: liveData.volume,
+                change_pct: liveData.open > 0
+                  ? ((liveData.ltp || liveData.close) - liveData.open) / liveData.open * 100
+                  : 0,
+                source: liveData.source,
+              };
+              return;
+            }
+            // Fallback
             const res = await fetch(`/api/market-data/${symbol}`);
             if (res.ok) {
               results[symbol] = await res.json();
@@ -73,7 +118,7 @@ export function useMultiMarketData(symbols: { symbol: string; label: string }[])
     }
 
     fetchAll();
-    const interval = setInterval(fetchAll, 60000);
+    const interval = setInterval(fetchAll, 15000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [symbols.map(s => s.symbol).join(",")]);
 

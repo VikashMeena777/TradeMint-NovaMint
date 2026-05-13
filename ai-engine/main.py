@@ -12,7 +12,7 @@ import logging
 
 from config import get_settings
 from indicators import compute_indicators
-from market_data import get_stock_data
+from market_data import get_stock_data, get_live_price
 from llm_gateway import call_llm, get_available_providers
 from agents import generate_signal
 
@@ -87,12 +87,29 @@ async def root():
 @app.get("/health")
 async def health():
     providers = get_available_providers()
+    from angel_one import is_configured as angel_configured
     return {
         "status": "healthy",
         "llm_providers_configured": len(providers),
         "providers": providers,
         "mode": "ai" if providers else "rule-based",
+        "angel_one": "connected" if angel_configured() else "not configured",
     }
+
+
+@app.get("/api/live-price/{symbol}")
+async def live_price(symbol: str, exchange: str = "NSE"):
+    """Get real-time price. Angel One (live) → Yahoo Finance (15-min delay)."""
+    try:
+        price = get_live_price(symbol, exchange)
+        if not price:
+            raise HTTPException(status_code=404, detail=f"No price data for {symbol}")
+        return price
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Live price failed for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/signals/generate", response_model=SignalResponse)
