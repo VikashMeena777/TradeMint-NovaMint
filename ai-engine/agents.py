@@ -1,6 +1,19 @@
 """
 Multi-Agent Signal Pipeline — 8 AI agents working together.
-Flow: Analysts (parallel) → Debate → Trader → Risk Manager → Signal
+Flow: Analysts (parallel on diff providers) → Debate (parallel) → Trader → Risk Manager → Signal
+
+Provider distribution for parallel execution:
+  Groq:       fundamental_analyst, technical_analyst
+  NVIDIA:     sentiment_analyst
+  OpenRouter: news_analyst
+  → All 4 run in parallel (each on a different provider = no rate limits)
+
+  NVIDIA:     bull_researcher
+  OpenRouter: bear_researcher
+  → Both run in parallel
+
+  Groq:       trader (sequential, depends on above)
+  NVIDIA:     risk_manager (sequential, depends on trader)
 """
 
 import asyncio
@@ -27,7 +40,8 @@ async def generate_signal(
 ) -> dict:
     """
     Run the full 8-agent pipeline to generate a trade signal.
-    Total target latency: <30 seconds.
+    Analysts run in PARALLEL across distributed providers.
+    Target latency: ~10-15 seconds (parallel) instead of 40s (sequential).
     """
     start_time = time.time()
     agents_data = {}
@@ -41,39 +55,46 @@ async def generate_signal(
     indicators = compute_indicators(data)
     stock_info = get_stock_info(symbol, exchange)
 
-    # ─── Step 2: Run 4 Analysts SEQUENTIALLY (free-tier rate limits) ─
-    logger.info(f"[2/5] Running 4 analysts sequentially (free-tier rate limits)")
-    fundamental = await _run_fundamental(symbol, exchange, stock_info, indicators)
+    # ─── Step 2: Run 4 Analysts in PARALLEL ─────────
+    # Each analyst uses a DIFFERENT provider, so no rate limit conflicts:
+    #   fundamental → Groq
+    #   technical   → Groq (fast 8B, different from fundamental's timing)
+    #   sentiment   → NVIDIA
+    #   news        → OpenRouter
+    logger.info(f"[2/5] Running 4 analysts in parallel (distributed across 3 providers)")
+    fundamental, technical, sentiment, news = await asyncio.gather(
+        _run_fundamental(symbol, exchange, stock_info, indicators),
+        _run_technical(symbol, exchange, indicators),
+        _run_sentiment(symbol, exchange, stock_info),
+        _run_news(symbol, exchange, stock_info),
+    )
     agents_data["fundamental"] = fundamental
-
-    technical = await _run_technical(symbol, exchange, indicators)
     agents_data["technical"] = technical
-
-    sentiment = await _run_sentiment(symbol, exchange, stock_info)
     agents_data["sentiment"] = sentiment
-
-    news = await _run_news(symbol, exchange, stock_info)
     agents_data["news"] = news
 
-    # ─── Step 3: Bull vs Bear Debate (Sequential) ─────
-    logger.info(f"[3/5] Running bull vs bear debate")
+    # ─── Step 3: Bull vs Bear Debate (Parallel) ─────
+    # bull → NVIDIA, bear → OpenRouter (different providers = parallel safe)
+    logger.info(f"[3/5] Running bull vs bear debate in parallel")
     analyst_summary = json.dumps({
         "fundamental": fundamental, "technical": technical,
         "sentiment": sentiment, "news": news,
     }, default=str)
 
-    bull = await _run_bull(symbol, exchange, analyst_summary)
-    bear = await _run_bear(symbol, exchange, analyst_summary)
+    bull, bear = await asyncio.gather(
+        _run_bull(symbol, exchange, analyst_summary),
+        _run_bear(symbol, exchange, analyst_summary),
+    )
     agents_data["bull_researcher"] = bull
     agents_data["bear_researcher"] = bear
 
-    # ─── Step 4: Trader Synthesis ───────────────────
+    # ─── Step 4: Trader Synthesis (Sequential — needs all inputs) ─
     logger.info(f"[4/5] Trader synthesizing all inputs")
     debate_summary = json.dumps({"bull_case": bull, "bear_case": bear}, default=str)
     trader = await _run_trader(symbol, exchange, analyst_summary, debate_summary, indicators)
     agents_data["trader"] = trader
 
-    # ─── Step 5: Risk Manager Validation ────────────
+    # ─── Step 5: Risk Manager Validation (Sequential) ────────────
     logger.info(f"[5/5] Risk manager validating")
     risk = await _run_risk_manager(symbol, exchange, trader, indicators)
     agents_data["risk_manager"] = risk

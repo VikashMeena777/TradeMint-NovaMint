@@ -1,7 +1,8 @@
 """
-LLM Gateway — Free-tier orchestration with automatic fallback.
-Priority: Groq (fastest) → NVIDIA NIM → OpenRouter free models
-All 3 providers are FREE tier. If none have API keys, falls back to rule-based signals.
+LLM Gateway — Free-tier orchestration with provider distribution.
+Each agent is assigned a PRIMARY provider to enable parallel execution
+without hitting any single provider's rate limit.
+Fallback chain: primary → next provider → last provider → rule-based
 """
 
 import json
@@ -48,22 +49,29 @@ PROVIDERS = {
     },
 }
 
-# ─── Agent → Model Priority ──────────────────────────────────────
-# Use "fast" (8B) for most agents to avoid Groq rate limits.
-# Only use "large" (70B) for the final trader + risk_manager.
+# ─── Agent → Provider Distribution ────────────────────────────────
+# SPREAD agents across providers so they can run IN PARALLEL.
+# Each agent starts with a different provider, then falls back.
+#
+# Groq (3 agents):      fundamental, technical, trader
+# NVIDIA (3 agents):    sentiment, bull_researcher, risk_manager
+# OpenRouter (2 agents): news, bear_researcher
+#
 AGENT_MODEL_MAP = {
+    # ── Groq-primary agents ──
     "fundamental_analyst": [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")],
     "technical_analyst":   [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")],
-    "sentiment_analyst":   [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")],
-    "news_analyst":        [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")],
-    "bull_researcher":     [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")],
-    "bear_researcher":     [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")],
     "trader":              [("groq", "large"), ("nvidia", "large"), ("openrouter", "large")],
-    "risk_manager":        [("groq", "large"), ("nvidia", "large"), ("openrouter", "large")],
-}
 
-# Track last call time to avoid rate limiting
-_last_call_time = 0.0
+    # ── NVIDIA-primary agents ──
+    "sentiment_analyst":   [("nvidia", "large"), ("groq", "fast"), ("openrouter", "fast")],
+    "bull_researcher":     [("nvidia", "large"), ("groq", "fast"), ("openrouter", "large")],
+    "risk_manager":        [("nvidia", "large"), ("groq", "large"), ("openrouter", "large")],
+
+    # ── OpenRouter-primary agents ──
+    "news_analyst":        [("openrouter", "large"), ("groq", "fast"), ("nvidia", "large")],
+    "bear_researcher":     [("openrouter", "large"), ("groq", "fast"), ("nvidia", "large")],
+}
 
 
 def get_available_providers() -> list[str]:
@@ -84,19 +92,10 @@ async def call_llm(
     response_format: Optional[str] = "json",
 ) -> dict:
     """
-    Call LLM with automatic fallback across ALL configured providers.
-    Groq → NVIDIA NIM → OpenRouter (all free tier).
-    Adds delay between calls to respect free-tier rate limits.
+    Call LLM with automatic fallback across distributed providers.
+    Each agent has a PRIMARY provider to enable parallel execution.
+    If primary fails, falls back to other providers.
     """
-    global _last_call_time
-
-    # Enforce 2.5 second gap between LLM calls to avoid Groq 429s
-    now = asyncio.get_event_loop().time()
-    elapsed = now - _last_call_time
-    if elapsed < 2.5:
-        await asyncio.sleep(2.5 - elapsed)
-    _last_call_time = asyncio.get_event_loop().time()
-
     fallback_chain = AGENT_MODEL_MAP.get(
         agent_name,
         [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")]
@@ -133,8 +132,8 @@ async def call_llm(
 
         except Exception as e:
             logger.warning(f"✗ {agent_name} → {provider_name}/{model} failed: {e}")
-            # Wait before trying next provider
-            await asyncio.sleep(1.0)
+            # Brief pause before trying fallback provider
+            await asyncio.sleep(0.5)
             continue
 
     # All providers failed — return rule-based fallback
@@ -198,7 +197,7 @@ async def _call_provider(
 def _rule_based_fallback(agent_name: str) -> dict:
     """
     Rule-based fallback when no LLM providers are available.
-    These should still produce ACTIONABLE signals, not just "configure API key".
+    These still produce actionable signals.
     """
     fallbacks = {
         "fundamental_analyst": {
