@@ -41,30 +41,29 @@ async def generate_signal(
     indicators = compute_indicators(data)
     stock_info = get_stock_info(symbol, exchange)
 
-    # ─── Step 2: Run 4 Analysts in Parallel ─────────
-    logger.info(f"[2/5] Running 4 analysts in parallel")
-    analyst_tasks = [
-        _run_fundamental(symbol, exchange, stock_info, indicators),
-        _run_technical(symbol, exchange, indicators),
-        _run_sentiment(symbol, exchange, stock_info),
-        _run_news(symbol, exchange, stock_info),
-    ]
-    fundamental, technical, sentiment, news = await asyncio.gather(*analyst_tasks)
+    # ─── Step 2: Run 4 Analysts SEQUENTIALLY (free-tier rate limits) ─
+    logger.info(f"[2/5] Running 4 analysts sequentially (free-tier rate limits)")
+    fundamental = await _run_fundamental(symbol, exchange, stock_info, indicators)
     agents_data["fundamental"] = fundamental
+
+    technical = await _run_technical(symbol, exchange, indicators)
     agents_data["technical"] = technical
+
+    sentiment = await _run_sentiment(symbol, exchange, stock_info)
     agents_data["sentiment"] = sentiment
+
+    news = await _run_news(symbol, exchange, stock_info)
     agents_data["news"] = news
 
-    # ─── Step 3: Bull vs Bear Debate (Parallel) ─────
+    # ─── Step 3: Bull vs Bear Debate (Sequential) ─────
     logger.info(f"[3/5] Running bull vs bear debate")
     analyst_summary = json.dumps({
         "fundamental": fundamental, "technical": technical,
         "sentiment": sentiment, "news": news,
     }, default=str)
 
-    bull_task = _run_bull(symbol, exchange, analyst_summary)
-    bear_task = _run_bear(symbol, exchange, analyst_summary)
-    bull, bear = await asyncio.gather(bull_task, bear_task)
+    bull = await _run_bull(symbol, exchange, analyst_summary)
+    bear = await _run_bear(symbol, exchange, analyst_summary)
     agents_data["bull_researcher"] = bull
     agents_data["bear_researcher"] = bear
 
