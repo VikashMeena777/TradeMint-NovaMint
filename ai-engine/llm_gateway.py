@@ -30,7 +30,7 @@ PROVIDERS = {
     "nvidia": {
         "base_url": "https://integrate.api.nvidia.com/v1/chat/completions",
         "models": {
-            "large": "meta/llama-3.1-8b-instruct",
+            "large": "nvidia/nemotron-3-super-120b-a12b",
         },
         "get_key": lambda: settings.nvidia_nim_api_key,
         "headers_extra": {},
