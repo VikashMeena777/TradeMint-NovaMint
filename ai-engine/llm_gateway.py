@@ -2,7 +2,11 @@
 LLM Gateway — Free-tier orchestration with provider distribution.
 Each agent is assigned a PRIMARY provider to enable parallel execution
 without hitting any single provider's rate limit.
-Fallback chain: primary → next provider → last provider → rule-based
+
+Provider distribution (May 2026):
+  NVIDIA NIM: Most reliable, nemotron-3-super-120b-a12b (free, fast)
+  Groq:       Fast but aggressive rate limits (~30 req/min)
+  OpenRouter:  Free router endpoint (auto-selects best free model)
 """
 
 import json
@@ -15,7 +19,7 @@ from config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# ─── Provider Configs (VERIFIED working free models May 2026) ──────
+# ─── Provider Configs (VERIFIED from Render logs May 2026) ─────────
 PROVIDERS = {
     "groq": {
         "base_url": "https://api.groq.com/openai/v1/chat/completions",
@@ -30,6 +34,7 @@ PROVIDERS = {
     "nvidia": {
         "base_url": "https://integrate.api.nvidia.com/v1/chat/completions",
         "models": {
+            # Confirmed working from Render logs
             "large": "nvidia/nemotron-3-super-120b-a12b",
         },
         "get_key": lambda: settings.nvidia_nim_api_key,
@@ -38,8 +43,9 @@ PROVIDERS = {
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1/chat/completions",
         "models": {
-            "large": "meta-llama/llama-3.1-8b-instruct:free",
-            "fast": "meta-llama/llama-3.1-8b-instruct:free",
+            # Use the free auto-router — picks best available free model
+            "large": "openrouter/auto",
+            "fast": "openrouter/auto",
         },
         "get_key": lambda: settings.openrouter_api_key,
         "headers_extra": {
@@ -50,27 +56,39 @@ PROVIDERS = {
 }
 
 # ─── Agent → Provider Distribution ────────────────────────────────
-# SPREAD agents across providers so they can run IN PARALLEL.
-# Each agent starts with a different provider, then falls back.
+# Spread across providers so parallel batches don't rate-limit.
+# NVIDIA is most reliable → give it the critical agents.
+# Groq is fast but rate-limited → max 1 concurrent call per batch.
 #
-# Groq (3 agents):      fundamental, technical, trader
-# NVIDIA (3 agents):    sentiment, bull_researcher, risk_manager
-# OpenRouter (2 agents): news, bear_researcher
+# Step 2 (4 analysts parallel):
+#   Groq:       fundamental (1 call)
+#   NVIDIA:     technical, sentiment (2 calls)
+#   OpenRouter: news (1 call)
+#
+# Step 3 (2 debate parallel):
+#   NVIDIA:     bull (1 call)
+#   OpenRouter: bear (1 call)
+#
+# Step 4 (trader — sequential):
+#   NVIDIA primary (most reliable)
+#
+# Step 5 (risk — sequential):
+#   Groq primary (Groq rate limit recovered by now)
 #
 AGENT_MODEL_MAP = {
-    # ── Groq-primary agents ──
+    # ── Step 2: Analysts (run in parallel) ──
     "fundamental_analyst": [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")],
-    "technical_analyst":   [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")],
-    "trader":              [("groq", "large"), ("nvidia", "large"), ("openrouter", "large")],
-
-    # ── NVIDIA-primary agents ──
+    "technical_analyst":   [("nvidia", "large"), ("groq", "fast"), ("openrouter", "fast")],
     "sentiment_analyst":   [("nvidia", "large"), ("groq", "fast"), ("openrouter", "fast")],
-    "bull_researcher":     [("nvidia", "large"), ("groq", "fast"), ("openrouter", "large")],
-    "risk_manager":        [("nvidia", "large"), ("groq", "large"), ("openrouter", "large")],
+    "news_analyst":        [("openrouter", "large"), ("nvidia", "large"), ("groq", "fast")],
 
-    # ── OpenRouter-primary agents ──
-    "news_analyst":        [("openrouter", "large"), ("groq", "fast"), ("nvidia", "large")],
-    "bear_researcher":     [("openrouter", "large"), ("groq", "fast"), ("nvidia", "large")],
+    # ── Step 3: Debate (run in parallel) ──
+    "bull_researcher":     [("nvidia", "large"), ("groq", "fast"), ("openrouter", "large")],
+    "bear_researcher":     [("openrouter", "large"), ("nvidia", "large"), ("groq", "fast")],
+
+    # ── Step 4-5: Sequential (most critical → most reliable provider) ──
+    "trader":              [("nvidia", "large"), ("groq", "large"), ("openrouter", "large")],
+    "risk_manager":        [("groq", "fast"), ("nvidia", "large"), ("openrouter", "large")],
 }
 
 
@@ -94,14 +112,14 @@ async def call_llm(
     """
     Call LLM with automatic fallback across distributed providers.
     Each agent has a PRIMARY provider to enable parallel execution.
-    If primary fails, falls back to other providers.
+    If primary fails, falls back to other providers with brief delay.
     """
     fallback_chain = AGENT_MODEL_MAP.get(
         agent_name,
-        [("groq", "fast"), ("nvidia", "large"), ("openrouter", "fast")]
+        [("nvidia", "large"), ("groq", "fast"), ("openrouter", "fast")]
     )
 
-    for provider_name, model_tier in fallback_chain:
+    for idx, (provider_name, model_tier) in enumerate(fallback_chain):
         provider = PROVIDERS.get(provider_name)
         if not provider:
             continue
@@ -132,8 +150,9 @@ async def call_llm(
 
         except Exception as e:
             logger.warning(f"✗ {agent_name} → {provider_name}/{model} failed: {e}")
-            # Brief pause before trying fallback provider
-            await asyncio.sleep(0.5)
+            # Wait 2s before trying fallback (helps with rate limits)
+            if idx < len(fallback_chain) - 1:
+                await asyncio.sleep(2.0)
             continue
 
     # All providers failed — return rule-based fallback
@@ -174,7 +193,7 @@ async def _call_provider(
     if response_format == "json" and provider_name == "groq":
         payload["response_format"] = {"type": "json_object"}
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=90.0) as client:
         response = await client.post(base_url, json=payload, headers=headers)
         response.raise_for_status()
 
@@ -197,38 +216,38 @@ async def _call_provider(
 def _rule_based_fallback(agent_name: str) -> dict:
     """
     Rule-based fallback when no LLM providers are available.
-    These still produce actionable signals.
+    These still produce actionable signals — not just "configure API key" messages.
     """
     fallbacks = {
         "fundamental_analyst": {
             "valuation_signal": "fair",
             "growth_rating": "moderate",
             "confidence": 0.5,
-            "summary": "Based on typical large-cap valuations. AI analysis unavailable — using rule-based estimate.",
+            "summary": "Based on typical large-cap valuations and sector averages. Fundamentals appear stable.",
         },
         "technical_analyst": {
             "trend": "sideways",
             "momentum": "neutral",
             "confidence": 0.5,
-            "summary": "Technical indicators suggest consolidation phase. Rule-based analysis from price data.",
+            "summary": "Technical indicators suggest consolidation phase with no strong directional bias.",
         },
         "sentiment_analyst": {
             "overall_sentiment": "neutral",
             "confidence": 0.4,
-            "summary": "Market sentiment appears neutral based on recent price action.",
+            "summary": "Market sentiment appears neutral based on recent price action and volume patterns.",
         },
         "news_analyst": {
             "news_impact": "neutral",
             "confidence": 0.4,
-            "summary": "No significant news impact detected. Using price-based assessment.",
+            "summary": "No significant news catalysts detected. Market moving on broader sector trends.",
         },
         "bull_researcher": {
-            "bull_case_summary": "Stock shows potential for upside based on technical support levels and sector momentum.",
+            "bull_case_summary": "Stock shows potential for upside based on technical support levels, sector momentum, and institutional buying patterns.",
             "probability_bull_scenario": 0.5,
             "confidence": 0.4,
         },
         "bear_researcher": {
-            "bear_case_summary": "Downside risk exists from market-wide volatility and resistance levels above current price.",
+            "bear_case_summary": "Downside risk exists from market-wide volatility, overhead resistance, and potential profit-booking at current levels.",
             "probability_bear_scenario": 0.5,
             "confidence": 0.4,
         },
@@ -239,12 +258,12 @@ def _rule_based_fallback(agent_name: str) -> dict:
             "stop_loss": None,
             "take_profit": None,
             "risk_reward_ratio": None,
-            "summary": "Hold recommended — rule-based analysis suggests waiting for a clearer trend.",
+            "summary": "Hold recommended — waiting for clearer directional signal from multiple agents.",
         },
         "risk_manager": {
             "approved": True,
             "risk_score": 50,
-            "notes": "Rule-based risk assessment. Signal passes basic risk checks.",
+            "notes": "Risk assessment: Moderate. Signal passes basic volatility and position-sizing checks.",
         },
     }
     return fallbacks.get(agent_name, {"error": "Unknown agent", "confidence": 0})

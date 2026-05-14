@@ -1,25 +1,23 @@
 "use client";
 
+import { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { SignalCard } from "@/components/dashboard/signal-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StockChart } from "@/components/charts/stock-chart";
-import { Zap, Brain, Filter, Loader2, Search, BarChart3, X } from "lucide-react";
-import { useState, useEffect, Suspense } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  Zap, Brain, Filter, Loader2, Search, BarChart3, X,
+  ArrowRight, TrendingUp, Sparkles,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import type { TradeSignal } from "@/types/database";
 
 const fadeUp = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4 } } };
 const stagger = { visible: { transition: { staggerChildren: 0.08 } } };
-
-const DEMO_SIGNALS: TradeSignal[] = [
-  { id: "1", user_id: "demo", symbol: "RELIANCE", exchange: "NSE", signal_type: "buy", confidence_score: 82, entry_price: 2850.50, stop_loss: 2780.00, take_profit: 3050.00, position_size: 10, lot_size: 1, risk_reward_ratio: 2.8, reasoning: { fundamental: "Strong diversified revenue from Jio, Retail, and O2C segments", technical: "RSI neutral, MACD flattening — potential reversal setup", sentiment: "Positive institutional flow with consistent FII buying", news: "New energy capex and Jio 5G monetization as key catalysts" }, agents_contributions: {}, debate_summary: "BULL: Jio growth + refinery margin expansion\n\nBEAR: Crude volatility + petrochemical overcapacity", risk_notes: "Position approved. Stop at ₹2,780 (2.5% risk). R:R 2.8:1.", status: "pending", expires_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), deleted_at: null },
-  { id: "2", user_id: "demo", symbol: "TCS", exchange: "NSE", signal_type: "sell", confidence_score: 71, entry_price: 3920, stop_loss: 4020, take_profit: 3750, position_size: 5, lot_size: 1, risk_reward_ratio: 1.7, reasoning: { fundamental: "Revenue growth slowing in key verticals", technical: "Bearish RSI divergence on weekly chart", sentiment: "Mixed sentiment — IT sector rotation concerns", news: "Q4 results pending — margin pressure expected" }, agents_contributions: {}, debate_summary: "BULL: Long-term digital transformation tailwind\n\nBEAR: Bearish RSI divergence, BFSI spending slowdown", risk_notes: "Moderate risk. Stop at ₹4,020. R:R 1.7:1.", status: "pending", expires_at: null, created_at: new Date(Date.now() - 3600000).toISOString(), updated_at: new Date().toISOString(), deleted_at: null },
-  { id: "3", user_id: "demo", symbol: "HDFCBANK", exchange: "NSE", signal_type: "buy", confidence_score: 88, entry_price: 1685, stop_loss: 1640, take_profit: 1800, position_size: 15, lot_size: 1, risk_reward_ratio: 2.6, reasoning: { fundamental: "Best-in-class asset quality, growing NIMs", technical: "Trading near strong support zone with positive divergence", sentiment: "Institutional accumulation detected", news: "RBI rate cut cycle to boost credit growth" }, agents_contributions: {}, debate_summary: "BULL: RBI rate cut tailwind + credit growth\n\nBEAR: NPA concerns in unsecured lending", risk_notes: "Position approved. Excellent R:R. Stop at ₹1,640.", status: "approved", expires_at: null, created_at: new Date(Date.now() - 7200000).toISOString(), updated_at: new Date().toISOString(), deleted_at: null },
-];
 
 export default function SignalsPage() {
   return (
@@ -31,12 +29,34 @@ export default function SignalsPage() {
 
 function SignalsContent() {
   const searchParams = useSearchParams();
+  const supabase = createClient();
   const [filter, setFilter] = useState<"all" | "buy" | "sell" | "hold">("all");
   const [generating, setGenerating] = useState(false);
   const [symbol, setSymbol] = useState("");
-  const [signals, setSignals] = useState<TradeSignal[]>(DEMO_SIGNALS);
+  const [signals, setSignals] = useState<TradeSignal[]>([]);
+  const [loading, setLoading] = useState(true);
   const [agentStatus, setAgentStatus] = useState<string>("");
   const [chartSymbol, setChartSymbol] = useState<string | null>(null);
+
+  // Fetch real signals from Supabase
+  useEffect(() => {
+    async function fetchSignals() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+
+      const { data } = await supabase
+        .from("trade_signals")
+        .select("*")
+        .eq("user_id", user.id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      setSignals((data as TradeSignal[]) || []);
+      setLoading(false);
+    }
+    fetchSignals();
+  }, []);
 
   // Pre-fill symbol from URL params (from watchlist)
   useEffect(() => {
@@ -54,24 +74,25 @@ function SignalsContent() {
     if (!sym) { toast.error("Enter a stock symbol (e.g. RELIANCE, TCS)"); return; }
 
     setGenerating(true);
-    setAgentStatus("Fetching market data...");
+    setAgentStatus("Initializing AI pipeline...");
     setChartSymbol(sym);
 
     try {
       const stages = [
-        "Fetching market data...",
-        "Running Fundamental Analyst...",
-        "Running Technical Analyst...",
-        "Running Sentiment & News Analysts...",
-        "Bull vs Bear Debate...",
-        "Trader synthesizing...",
-        "Risk Manager validating...",
+        "📊 Fetching 6-month market data...",
+        "🔬 Fundamental Analyst evaluating...",
+        "📈 Technical Analyst computing indicators...",
+        "🧠 Sentiment & News Analysts running...",
+        "⚔️ Bull vs Bear Debate in progress...",
+        "🤝 Trader synthesizing all inputs...",
+        "🛡️ Risk Manager validating...",
+        "✨ Finalizing signal...",
       ];
       let stageIdx = 0;
       const interval = setInterval(() => {
         stageIdx = Math.min(stageIdx + 1, stages.length - 1);
         setAgentStatus(stages[stageIdx]);
-      }, 3000);
+      }, 4000);
 
       const res = await fetch("/api/signals/generate", {
         method: "POST",
@@ -83,15 +104,18 @@ function SignalsContent() {
       const data = await res.json();
 
       if (data.error && data.confidence_score === 0) {
-        toast.error("AI Engine offline — start it with: cd ai-engine && python main.py");
+        toast.error("AI Engine offline — check Render deployment");
         setAgentStatus("");
         setGenerating(false);
         return;
       }
 
+      // Save signal to Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+
       const newSignal: TradeSignal = {
         id: crypto.randomUUID(),
-        user_id: "local",
+        user_id: user?.id || "local",
         symbol: data.symbol || sym,
         exchange: data.exchange || "NSE",
         signal_type: data.signal_type || "hold",
@@ -113,8 +137,20 @@ function SignalsContent() {
         deleted_at: null,
       };
 
+      // Save to Supabase for persistence
+      if (user) {
+        await supabase.from("trade_signals").insert({
+          ...newSignal,
+          id: undefined, // let Supabase generate UUID
+        }).select().single().then(({ data: saved }) => {
+          if (saved) newSignal.id = (saved as Record<string, string>).id;
+        });
+      }
+
       setSignals(prev => [newSignal, ...prev]);
-      toast.success(`Signal generated for ${sym}: ${data.signal_type?.toUpperCase()} (${data.confidence_score}% confidence)`);
+
+      const emoji = data.signal_type === "buy" ? "🟢" : data.signal_type === "sell" ? "🔴" : "🟡";
+      toast.success(`${emoji} ${sym}: ${data.signal_type?.toUpperCase()} — ${data.confidence_score}% confidence`);
       setSymbol("");
     } catch {
       toast.error("Failed to connect to AI engine");
@@ -128,9 +164,9 @@ function SignalsContent() {
     <motion.div initial="hidden" animate="visible" variants={stagger} className="space-y-6">
       <motion.div variants={fadeUp}>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Zap className="h-6 w-6 text-purple-400" /> AI Signals
+          <Zap className="h-6 w-6 text-purple-600 dark:text-purple-400" /> AI Signals
         </h1>
-        <p className="text-sm text-muted-foreground">Trade signals generated by 8 AI agents · Groq + NVIDIA NIM + OpenRouter</p>
+        <p className="text-sm text-muted-foreground">8 AI agents analyze → debate → decide · Powered by Groq + NVIDIA + OpenRouter</p>
       </motion.div>
 
       {/* Generate Signal Form */}
@@ -141,7 +177,7 @@ function SignalsContent() {
             <Input placeholder="Enter stock symbol (e.g. RELIANCE, TCS, INFY)"
               value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())}
               onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
-              className="pl-10 bg-muted border-border uppercase"
+              className="pl-10 bg-secondary border-border uppercase"
               disabled={generating} />
           </div>
           <Button onClick={handleGenerate} disabled={generating}
@@ -150,10 +186,14 @@ function SignalsContent() {
           </Button>
         </div>
         {agentStatus && (
-          <div className="mt-3 flex items-center gap-2 text-sm text-purple-400">
-            <div className="h-2 w-2 rounded-full bg-purple-400 animate-pulse" />
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="mt-3 flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400"
+          >
+            <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
             {agentStatus}
-          </div>
+          </motion.div>
         )}
       </motion.div>
 
@@ -162,7 +202,7 @@ function SignalsContent() {
         <motion.div variants={fadeUp} className="glass-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold flex items-center gap-2 text-sm">
-              <BarChart3 className="h-4 w-4 text-purple-400" />
+              <BarChart3 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
               {chartSymbol} — Price Chart
             </h3>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setChartSymbol(null)}>
@@ -178,7 +218,11 @@ function SignalsContent() {
         <Filter className="h-4 w-4 text-muted-foreground" />
         {(["all", "buy", "sell", "hold"] as const).map((f) => (
           <button key={f} onClick={() => setFilter(f)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${filter === f ? "bg-purple-600/20 text-purple-400 border border-purple-500/30" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}>
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+              filter === f
+                ? "bg-purple-600/20 text-purple-600 dark:text-purple-400 border border-purple-500/30"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}>
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
@@ -186,19 +230,49 @@ function SignalsContent() {
       </motion.div>
 
       {/* Signal Grid */}
-      <motion.div variants={fadeUp} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((signal) => (
-          <motion.div key={signal.id} variants={fadeUp}>
-            <SignalCard signal={signal} />
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {filtered.length === 0 && (
+      {loading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="glass-card p-6 h-44 animate-pulse">
+              <div className="h-4 w-20 bg-muted rounded mb-3" />
+              <div className="h-6 w-32 bg-muted rounded mb-2" />
+              <div className="h-3 w-full bg-muted rounded mb-2" />
+              <div className="h-3 w-2/3 bg-muted rounded" />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length > 0 ? (
+        <motion.div variants={fadeUp} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((signal) => (
+            <motion.div key={signal.id} variants={fadeUp}>
+              <SignalCard signal={signal} />
+            </motion.div>
+          ))}
+        </motion.div>
+      ) : (
         <motion.div variants={fadeUp} className="glass-card p-12 text-center">
-          <Zap className="mx-auto h-12 w-12 text-muted-foreground/30 mb-4" />
-          <h3 className="text-lg font-semibold mb-1">No {filter} signals</h3>
-          <p className="text-sm text-muted-foreground">Try a different filter or generate new signals.</p>
+          {filter === "all" ? (
+            <>
+              <Sparkles className="mx-auto h-14 w-14 text-purple-600/30 dark:text-purple-400/30 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No signals generated yet</h3>
+              <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
+                Enter a stock symbol above and click &quot;Generate Signal&quot; to let 8 AI agents analyze, debate, and produce a trade recommendation.
+              </p>
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <span className="px-2 py-1 rounded bg-muted">RELIANCE</span>
+                <span className="px-2 py-1 rounded bg-muted">TCS</span>
+                <span className="px-2 py-1 rounded bg-muted">HDFCBANK</span>
+                <span className="px-2 py-1 rounded bg-muted">INFY</span>
+                <span className="px-2 py-1 rounded bg-muted">NIFTY</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <Zap className="mx-auto h-12 w-12 text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-semibold mb-1">No {filter} signals</h3>
+              <p className="text-sm text-muted-foreground">Try a different filter or generate new signals.</p>
+            </>
+          )}
         </motion.div>
       )}
     </motion.div>
