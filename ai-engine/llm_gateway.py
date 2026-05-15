@@ -25,8 +25,8 @@ PROVIDERS = {
         "base_url": "https://api.groq.com/openai/v1/chat/completions",
         "models": {
             "large": "llama-3.3-70b-versatile",
-            "fast": "llama-3.1-8b-instant",
-            "mixtral": "mixtral-8x7b-32768",
+            "fast": "llama-3.3-70b-versatile",
+            "mixtral": "llama-3.3-70b-versatile",
         },
         "get_key": lambda: settings.groq_api_key,
         "headers_extra": {},
@@ -43,9 +43,8 @@ PROVIDERS = {
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1/chat/completions",
         "models": {
-            # Use the free auto-router — picks best available free model
-            "large": "openrouter/auto",
-            "fast": "openrouter/auto",
+            "large": "openrouter/owl-alpha",
+            "fast": "nvidia/nemotron-3-super-120b-a12b:free",
         },
         "get_key": lambda: settings.openrouter_api_key,
         "headers_extra": {
