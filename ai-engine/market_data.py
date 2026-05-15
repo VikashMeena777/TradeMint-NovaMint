@@ -71,6 +71,29 @@ def _get_angel_one_data(
         return None
 
 
+def _map_to_yahoo_ticker(symbol: str, exchange: str) -> str:
+    """Map common Indian symbols/indices to Yahoo Finance tickers."""
+    INDEX_MAP = {
+        "NIFTY": "^NSEI",
+        "NIFTY50": "^NSEI",
+        "BANKNIFTY": "^NSEBANK",
+        "SENSEX": "^BSESN",
+        "FINNIFTY": "^CNXFIN",
+        "MIDCPNIFTY": "^CRSMID",
+        "NIFTYIT": "^CNXIT",
+    }
+    
+    symbol_upper = symbol.upper().replace(" ", "")
+    if symbol_upper in INDEX_MAP:
+        return INDEX_MAP[symbol_upper]
+        
+    if symbol.startswith("^"):
+        return symbol
+        
+    suffix = EXCHANGE_SUFFIX.get(exchange.upper(), ".NS")
+    return f"{symbol}{suffix}"
+
+
 def get_stock_data(
     symbol: str,
     exchange: str = "NSE",
@@ -88,11 +111,7 @@ def get_stock_data(
             return angel_data
 
     # Fallback to Yahoo Finance
-    if symbol.startswith("^"):
-        ticker = symbol
-    else:
-        suffix = EXCHANGE_SUFFIX.get(exchange.upper(), ".NS")
-        ticker = f"{symbol}{suffix}"
+    ticker = _map_to_yahoo_ticker(symbol, exchange)
 
     try:
         logger.info(f"Yahoo Finance: Fetching {ticker} (period={period}, interval={interval})")
@@ -134,8 +153,7 @@ def get_live_price(symbol: str, exchange: str = "NSE") -> Optional[dict]:
 
     # Fallback to Yahoo Finance
     try:
-        suffix = EXCHANGE_SUFFIX.get(exchange.upper(), ".NS")
-        ticker = f"{symbol}{suffix}"
+        ticker = _map_to_yahoo_ticker(symbol, exchange)
         stock = yf.Ticker(ticker)
         data = stock.history(period="1d")
 
@@ -163,11 +181,7 @@ def get_live_price(symbol: str, exchange: str = "NSE") -> Optional[dict]:
 
 def get_stock_info(symbol: str, exchange: str = "NSE") -> dict:
     """Get fundamental info for a stock (sector, market cap, P/E, etc.)."""
-    if symbol.startswith("^"):
-        ticker = symbol
-    else:
-        suffix = EXCHANGE_SUFFIX.get(exchange.upper(), ".NS")
-        ticker = f"{symbol}{suffix}"
+    ticker = _map_to_yahoo_ticker(symbol, exchange)
 
     try:
         stock = yf.Ticker(ticker)
